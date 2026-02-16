@@ -8,35 +8,59 @@ const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
+// SANAL LİSTE (RAM'de tutulur, server kapanınca silinir)
+let videoQueue = []; 
+
 io.on('connection', (socket) => {
     
-    // ODAYA GİRİŞ
     socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
-        console.log(`➕ Giriş: ${socket.id} -> ${roomId}`);
+        console.log(`➕ Giriş: ${socket.id}`);
         
-        // Odaya girer girmez "Bana güncel durumu atın" diye bağır
+        // 1. Yeni gelene mevcut listeyi gönder
+        socket.emit('updateQueue', videoQueue);
+        
+        // 2. Senkronizasyon iste
         socket.to(roomId).emit('requestSync', socket.id); 
     });
 
-    // ODADAN ÇIKIŞ
     socket.on('leaveRoom', (roomId) => {
         socket.leave(roomId);
-        console.log(`➖ Çıkış: ${socket.id}`);
     });
 
-    // VİDEO EYLEMLERİ (Play/Pause/Seek/Url)
+    // --- LİSTE YÖNETİMİ ---
+    socket.on('queueAction', (data) => {
+        // data = { type: 'ADD' | 'REMOVE' | 'NEXT', url: '...' }
+        
+        if (data.type === 'ADD') {
+            videoQueue.push(data.url); // Listeye ekle
+        } 
+        else if (data.type === 'REMOVE') {
+            // Belirli bir indexi sil (Gelişmiş özellik, şimdilik basit tutalım)
+            videoQueue = videoQueue.filter(url => url !== data.url);
+        }
+        else if (data.type === 'NEXT') {
+            // Listeden ilk videoyu çıkar ve oynat
+            const nextUrl = videoQueue.shift(); 
+            if (nextUrl) {
+                io.to(data.roomId).emit('applyAction', { type: 'URL', newUrl: nextUrl });
+            }
+        }
+
+        // Her değişiklikte herkese güncel listeyi duyur
+        io.to(data.roomId).emit('updateQueue', videoQueue);
+    });
+
+    // --- MEVCUT VİDEO EYLEMLERİ ---
     socket.on('videoAction', (data) => {
-        // Mesajı gönderen hariç odadaki herkese ilet
         socket.to(data.roomId).emit('applyAction', data);
     });
 
-    // SYNC VERİSİ (Eskiden Yeniye)
     socket.on('sendSyncData', (data) => {
         io.to(data.targetId).emit('applyAction', data.action);
     });
 });
 
 server.listen(3000, () => {
-    console.log('🚀 Jam Server V3 (Stabil) Yayında!');
+    console.log('🚀 Jam Server V4 (Playlist Özellikli) Yayında!');
 });

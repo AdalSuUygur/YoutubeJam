@@ -3,20 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <style>
-        body { width: 250px; font-family: sans-serif; padding: 15px; text-align: center; }
-        h3 { color: #ff0000; margin-top: 0; }
-        input { width: 90%; padding: 8px; margin-bottom: 10px; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold;}
-        #joinBtn { background-color: #ff0000; color: white; }
-        #leaveBtn { background-color: #333; color: white; }
+        body { width: 300px; font-family: sans-serif; padding: 10px; text-align: center; }
+        h3 { color: #ff0000; margin: 5px 0; }
+        
+        input { width: 90%; padding: 8px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        button { width: 100%; padding: 8px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold; }
+        .btn-join { background-color: #28a745; color: white; }
+        .btn-leave { background-color: #dc3545; color: white; }
+        .btn-add { background-color: #007bff; color: white; margin-bottom: 10px;}
+
+        /* LİSTE TASARIMI */
+        #queueList { list-style: none; padding: 0; text-align: left; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; margin-top: 10px;}
+        #queueList li { padding: 5px; border-bottom: 1px solid #eee; font-size: 12px; word-break: break-all; }
+        #queueList li:before { content: "🎵 "; }
     </style>
 </head>
 <body>
-    <h3>Youtube Jam 🎵</h3>
-    <input type="text" id="roomInput" value="vibe-room-1">
+    <h3>Youtube Party 🎉</h3>
     
-    <button id="joinBtn">ODAYA KATIL</button>
-    <button id="leaveBtn">ODADAN AYRIL</button>
+    <input type="text" id="roomInput" value="vibe-room-1">
+    <button id="joinBtn" class="btn-join">ODAYA KATIL</button>
+    <button id="leaveBtn" class="btn-leave">AYRIL</button>
+    
+    <hr>
+    
+    <h4>Sıradaki Parçalar</h4>
+    <input type="text" id="videoUrlInput" placeholder="Youtube Linki Yapıştır...">
+    <button id="addQueueBtn" class="btn-add">LİSTEYE EKLE (+)</button>
+
+    <ul id="queueList">
+        <li>Liste boş...</li>
+    </ul>
     
     <script src="popup.js"></script>
 </body>
