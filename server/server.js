@@ -8,9 +8,9 @@ const io = new Server(server, {
     cors: { origin: "*", methods: ["GET", "POST"] }
 });
 
-// DEĞİŞİKLİK: Global dizi yerine, Oda ID'lerine göre ayrılmış nesne
-// Örnek Yapı: { "oda-1": ["urlA", "urlB"], "oda-2": ["urlC"] }
-const roomQueues = {}; 
+// ODA YAPISI: Sadece kuyruk listesi tutuyoruz.
+// Örnek: rooms["oda-1"] = { queue: ["urlA", "urlB"] }
+const rooms = {}; 
 
 io.on('connection', (socket) => {
     
@@ -18,52 +18,62 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         console.log(`➕ Giriş: ${socket.id} -> Oda: ${roomId}`);
         
-        // Eğer bu oda için henüz liste yoksa oluştur
-        if (!roomQueues[roomId]) {
-            roomQueues[roomId] = [];
+        // Oda yoksa başlat
+        if (!rooms[roomId]) {
+            rooms[roomId] = { queue: [] };
         }
         
-        // Sadece odaya ait olan listeyi gönder
-        socket.emit('updateQueue', roomQueues[roomId]);
-        
+        // Mevcut listeyi gönder
+        socket.emit('updateQueue', rooms[roomId].queue);
         socket.to(roomId).emit('requestSync', socket.id); 
     });
 
     socket.on('leaveRoom', (roomId) => {
         socket.leave(roomId);
-        // Not: Bellek yönetimi için oda boşaldığında 'delete roomQueues[roomId]' eklenebilir.
-        // Şimdilik karmaşıklığı artırmamak için eklemiyorum.
     });
 
-    // --- LİSTE YÖNETİMİ ---
+    // --- LİSTE VE OYNATMA YÖNETİMİ ---
     socket.on('queueAction', (data) => {
-        // data = { type, url, roomId }
         const { roomId, type, url } = data;
 
-        // Güvenlik: Oda dizisi var mı kontrol et
-        if (!roomQueues[roomId]) roomQueues[roomId] = [];
+        // Oda güvenliği
+        if (!rooms[roomId]) rooms[roomId] = { queue: [] };
+        const room = rooms[roomId];
 
         if (type === 'ADD') {
-            roomQueues[roomId].push(url);
+            // YENİ KURAL: Aynı link listede varsa ekleme!
+            if (room.queue.includes(url)) {
+                console.log(`⚠️ Çift kayıt engellendi: ${url}`);
+                return; // Fonksiyondan çık, işlem yapma
+            }
+            
+            room.queue.push(url);
         } 
         else if (type === 'REMOVE') {
-            roomQueues[roomId] = roomQueues[roomId].filter(u => u !== url);
+            // İstenen URL'yi listeden sil
+            room.queue = room.queue.filter(u => u !== url);
         }
         else if (type === 'NEXT') {
-            // Sadece o odanın listesinden çek
-            const nextUrl = roomQueues[roomId].shift(); 
+            // LİSTEDEN SİLME MANTIĞI (shift)
+            // Mantık: Şu an çalan (listenin başındaki) videoyu listeden at, sonrakini al.
+            
+            room.queue.shift(); // İlk elemanı sil (Dinlenen gitti)
+            
+            const nextUrl = room.queue[0]; // Yeni ilk elemanı al
+            
             if (nextUrl) {
                 io.to(roomId).emit('applyAction', { type: 'URL', newUrl: nextUrl });
+            } else {
+                console.log("⚠️ Liste boşaldı.");
             }
         }
 
-        // Güncellemeyi SADECE o odaya duyur
-        io.to(roomId).emit('updateQueue', roomQueues[roomId]);
+        // Güncel listeyi herkese duyur
+        io.to(roomId).emit('updateQueue', room.queue);
     });
 
     // --- VİDEO EYLEMLERİ ---
     socket.on('videoAction', (data) => {
-        // Zaten roomId ile filtreleniyordu, burası doğruydu.
         socket.to(data.roomId).emit('applyAction', data);
     });
 
@@ -73,5 +83,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(3000, () => {
-    console.log('🚀 Jam Server V4.1 (Room-Based Playlist) Yayında!');
+    console.log('🚀 Jam Server V4.3 (No-Duplicates & Consuming Queue) Yayında!');
 });
