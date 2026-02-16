@@ -13,7 +13,19 @@
         .btn-leave { background-color: #dc3545; color: white; }
         .btn-add { background-color: #007bff; color: white; margin-bottom: 10px;}
 
-        /* LİSTE TASARIMI */
+        /* YENİ: Senkronizasyon Uyarısı */
+        #syncAlert {
+            display: none; /* Varsayılan olarak gizli */
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .btn-sync { background-color: #ffc107; color: black; margin-top: 5px; }
+
         #queueList { list-style: none; padding: 0; text-align: left; max-height: 150px; overflow-y: auto; border-top: 1px solid #eee; margin-top: 10px;}
         #queueList li { padding: 5px; border-bottom: 1px solid #eee; font-size: 12px; word-break: break-all; }
         #queueList li:before { content: "🎵 "; }
@@ -26,6 +38,11 @@
     <button id="joinBtn" class="btn-join">ODAYA KATIL</button>
     <button id="leaveBtn" class="btn-leave">AYRIL</button>
     
+    <div id="syncAlert">
+        ⚠️ Parti başka bir videoda!
+        <button id="syncBtn" class="btn-sync">VİDEOYA GİT</button>
+    </div>
+
     <hr>
     
     <h4>Sıradaki Parçalar</h4>

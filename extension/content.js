@@ -1,14 +1,14 @@
 // --- AYARLAR ---
 let roomId = "vibe-room-1"; 
-const socket = io("http://localhost:3000"); // Eğer sunucu uzaktaysa burayı güncelle
+const socket = io("http://localhost:3000");
 let isPartyActive = sessionStorage.getItem('jamActive') === 'true';
 let isRemoteAction = false; 
 let video = null; 
 let currentUrl = location.href;
 const SYNC_THRESHOLD = 2; 
 
-// EKLENEN: Anlık listeyi hafızada tutmak için değişken
 let currentQueue = []; 
+let currentPartyUrl = null; // YENİ: Partinin olduğu asıl URL'yi burada tutuyoruz
 
 // --- BAŞLANGIÇ ---
 if (isPartyActive) connectToRoom();
@@ -22,14 +22,19 @@ function connectToRoom() {
 setInterval(() => {
     if (!isPartyActive) return;
 
-    // Video ve URL kontrolü
+    // Video kontrolü
     const newVideo = document.querySelector('video');
     if (newVideo && newVideo !== video) {
         video = newVideo;
         attachEvents(video);
     }
+
+    // URL Değişimi Kontrolü
     if (location.href !== currentUrl) {
         currentUrl = location.href;
+        
+        // Eğer manuel gezerken doğru linke geldiysek, bunu sunucuya bildirelim mi?
+        // Hayır, sadece izleyiciyiz. Ama eğer DJ bizsek ve link değiştirdiysek bildiririz.
         if (!isRemoteAction && currentUrl.includes("watch?v=")) {
             socket.emit('videoAction', { type: 'URL', newUrl: currentUrl, roomId });
         }
@@ -39,7 +44,9 @@ setInterval(() => {
 // --- HEARTBEAT ---
 setInterval(() => {
     if (isPartyActive && video && !video.paused && !isRemoteAction && location.href.includes("watch?v=")) {
-        socket.emit('videoAction', { type: 'HEARTBEAT', time: video.currentTime, roomId });
+        if(video.currentTime > 1) {
+            socket.emit('videoAction', { type: 'HEARTBEAT', time: video.currentTime, roomId });
+        }
     }
 }, 4000); 
 
@@ -64,43 +71,51 @@ socket.on('applyAction', (data) => {
     if (!isPartyActive) return;
     isRemoteAction = true; 
 
-    if (data.type === 'URL' || (data.type === 'SYNC' && data.newUrl !== location.href)) {
-        if(location.href !== data.newUrl) {
-            window.location.href = data.newUrl;
-            return;
+    // URL DEĞİŞİMİ: Sadece hafızaya kaydet, yönlendirme YAPMA.
+    if (data.type === 'URL' || data.type === 'SYNC_NEW_USER') {
+        if (data.newUrl) {
+            currentPartyUrl = data.newUrl; // Hedef URL'yi güncelle
         }
     }
     
-    if (data.type === 'HEARTBEAT' && video && !video.paused) {
-        if (Math.abs(video.currentTime - data.time) > SYNC_THRESHOLD) video.currentTime = data.time;
-        isRemoteAction = false; return;
+    // Video yoksa veya sayfada değilsek diğer komutları yoksay
+    if (!video || (currentPartyUrl && location.href !== currentPartyUrl)) {
+        isRemoteAction = false;
+        return;
     }
-    
-    if (video) {
-        if (data.type === 'PLAY') video.play();
-        else if (data.type === 'PAUSE') video.pause();
-        else if (data.type === 'SEEK') video.currentTime = data.time;
-        else if (data.type === 'SYNC') {
+
+    // HEARTBEAT
+    if (data.type === 'HEARTBEAT' && !video.paused) {
+        const timeDiff = data.time - video.currentTime;
+        if (timeDiff > SYNC_THRESHOLD) {
             video.currentTime = data.time;
-            if (data.isPlaying) video.play(); else video.pause();
         }
+        isRemoteAction = false; 
+        return;
     }
+    
+    // OYNATMA KONTROLLERİ
+    if (data.type === 'PLAY') video.play();
+    else if (data.type === 'PAUSE') video.pause();
+    else if (data.type === 'SEEK') video.currentTime = data.time;
+    else if (data.type === 'SYNC_NEW_USER') {
+        video.currentTime = data.time;
+        if(data.isPlaying) video.play(); else video.pause();
+    }
+
     setTimeout(() => { isRemoteAction = false; }, 1000);
 });
 
-// --- LİSTE GÜNCELLEMELERİNİ DİNLE ---
+// --- LİSTE GÜNCELLEMELERİ ---
 socket.on('updateQueue', (queue) => {
-    console.log("📋 Liste güncellendi:", queue);
-    
-    // EKLENEN: Gelen listeyi hafızaya kaydet
     currentQueue = queue;
-
-    // Eğer popup açıksa ona da gönder
-    chrome.runtime.sendMessage({ type: "UPDATE_POPUP_QUEUE", queue }).catch(() => {
-        // Popup kapalıysa hata verir, önemsizdir, yoksay.
-    });
+    // Popup'a hem listeyi hem de aktif parti URL'sini gönder
+    chrome.runtime.sendMessage({ 
+        type: "UPDATE_POPUP_QUEUE", 
+        queue, 
+        partyUrl: currentPartyUrl 
+    }).catch(() => {});
 });
-
 
 // --- POPUP İLETİŞİMİ ---
 chrome.runtime.onMessage.addListener((msg) => {
@@ -120,8 +135,12 @@ chrome.runtime.onMessage.addListener((msg) => {
     else if (msg.type === "QUEUE_ADD") {
         socket.emit('queueAction', { type: 'ADD', url: msg.url, roomId });
     }
-    // EKLENEN: Popup listeyi istediğinde hafızadakini gönder
     else if (msg.type === "GET_QUEUE_DATA") {
-        chrome.runtime.sendMessage({ type: "UPDATE_POPUP_QUEUE", queue: currentQueue });
+        // Popup veri istediğinde: Liste + O anki Parti URL'si
+        chrome.runtime.sendMessage({ 
+            type: "UPDATE_POPUP_QUEUE", 
+            queue: currentQueue,
+            partyUrl: currentPartyUrl 
+        });
     }
 });
