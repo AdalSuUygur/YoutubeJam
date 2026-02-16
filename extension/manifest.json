@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Youtube Jam",
+  "version": "1.0",
+  "description": "YouTube videolarını arkadaşlarınla senkronize izle.",
+  "permissions": ["activeTab"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["socket.io.min.js", "content.js"]
+    }
+  ]
+}
