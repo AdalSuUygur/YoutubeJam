@@ -1,27 +1,37 @@
 // 1. BAŞLANGIÇ AYARLARI
 let roomId = "vibe-room-1"; 
 const socket = io("http://localhost:3000");
+
+// "Bu sekme Jam'e dahil mi?" kontrolü (Sayfa yenilense bile hatırlar)
+let isPartyActive = sessionStorage.getItem('jamActive') === 'true';
+
 let isRemoteAction = false; 
 let video = null; 
-let currentUrl = location.href; // Şu anki linki hafızaya al
+let currentUrl = location.href;
 
-// 2. ODAYA BAĞLAN
-socket.emit('joinRoom', roomId);
+// Eğer bu sekme daha önce aktifleştirildiyse odaya gir
+if (isPartyActive) {
+    socket.emit('joinRoom', roomId);
+    console.log("🟢 Bu sekme Jam modunda ve aktif!");
+} else {
+    console.log("⚪ Bu sekme pasif modda. Aktifleştirmek için eklentiye tıkla.");
+}
 
-socket.on('connect', () => {
-    console.log("✅ Sunucuya bağlandım! Oda:", roomId);
-});
-
-// 3. SÜREKLİ KONTROL MERKEZİ (Hem Video Hem Link İçin)
+// 2. SÜREKLİ KONTROL MERKEZİ
 function checkPageStatus() {
-    // --- A) LİNK DEĞİŞİM KONTROLÜ (Işınlanma Özelliği) ---
+    // EĞER BU SEKME PASİFSE HİÇBİR ŞEY YAPMA!
+    if (!isPartyActive) return;
+
+    // --- A) LİNK DEĞİŞİM KONTROLÜ (FİLTRELİ) ---
     if (location.href !== currentUrl) {
-        // Link değişmiş!
         currentUrl = location.href;
         
-        // Eğer bu değişimi sunucu yapmadıysa (ben tıkladıysam)
-        if (!isRemoteAction) {
-            console.log("🔗 Yeni bir videoya geçildi:", currentUrl);
+        // FİLTRE: Sadece '/watch?v=' içeren GERÇEK videoları paylaş.
+        // Shorts (/shorts/) veya Anasayfa (/) ise sunucuya gönderme.
+        const isValidVideo = currentUrl.includes("watch?v=");
+
+        if (!isRemoteAction && isValidVideo) {
+            console.log("🔗 Geçerli video linki paylaşıldı:", currentUrl);
             socket.emit('videoAction', { 
                 type: 'URL_CHANGE', 
                 newUrl: currentUrl, 
@@ -32,63 +42,71 @@ function checkPageStatus() {
 
     // --- B) VİDEO ELEMENT KONTROLÜ ---
     const newVideo = document.querySelector('video');
-    // Video varsa VE (daha önce video yoksa VEYA video değiştiyse)
     if (newVideo && newVideo !== video) {
-        console.log("🎥 Yeni video elementi tanımlandı.");
         video = newVideo;
         attachEvents(video);
     }
 }
 
-// 4. VİDEO OLAYLARINI DİNLEME (Play/Pause/Seek)
+// 3. VİDEO OLAYLARINI DİNLEME
 function attachEvents(videoElement) {
+    // Yardımcı fonksiyon: Sadece aktif ve geçerli videoyso gönder
+    const canSend = () => isPartyActive && !isRemoteAction && location.href.includes("watch?v=");
+
     videoElement.onplay = () => {
-        if (!isRemoteAction) socket.emit('videoAction', { type: 'PLAY', roomId });
+        if (canSend()) socket.emit('videoAction', { type: 'PLAY', roomId });
     };
 
     videoElement.onpause = () => {
-        if (!isRemoteAction) socket.emit('videoAction', { type: 'PAUSE', roomId });
+        if (canSend()) socket.emit('videoAction', { type: 'PAUSE', roomId });
     };
 
     videoElement.onseeking = () => {
-        if (!isRemoteAction) {
+        if (canSend()) {
             socket.emit('videoAction', { type: 'SEEK', time: videoElement.currentTime, roomId });
         }
     };
 }
 
-// Her yarım saniyede bir sayfayı kontrol et
+// Her yarım saniyede bir kontrol et
 setInterval(checkPageStatus, 500);
 
-
-// 5. SUNUCUDAN GELEN MESAJLARI UYGULA
+// 4. SUNUCUDAN GELEN MESAJLARI UYGULA
 socket.on('videoActionFromServer', (data) => {
-    isRemoteAction = true; // Kilit tak (Sonsuz döngü olmasın)
+    // Eğer ben pasifsem, dışarıdan gelen emirleri de takmam!
+    if (!isPartyActive) return;
+
+    isRemoteAction = true; 
     console.log("📥 Sunucudan emir:", data.type);
 
     if (data.type === 'URL_CHANGE') {
-        // Eğer bende o video açık değilse, o sayfaya git
         if (location.href !== data.newUrl) {
             console.log("🚀 Arkadaşın videosuna ışınlanılıyor...");
             window.location.href = data.newUrl; 
         }
     } 
     else if (video) { 
-        // Video komutları
         if (data.type === 'PLAY') video.play();
         else if (data.type === 'PAUSE') video.pause();
         else if (data.type === 'SEEK') video.currentTime = data.time;
     }
 
-    // URL değişimi sayfayı yenileyeceği için timeout önemli değil ama
-    // Play/Pause için kilidi 1 saniye sonra açıyoruz.
     setTimeout(() => { isRemoteAction = false; }, 1000);
 });
 
-// 6. POPUP İLETİŞİMİ
+// 5. POPUP İLETİŞİMİ (AKTİFLEŞTİRME BUTONU)
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "JOIN_NEW_ROOM") {
+        console.log("✅ Bu sekme Jam için AKTİFLEŞTİRİLDİ:", message.roomId);
+        
+        // 1. Bu sekmeyi 'aktif' olarak işaretle ve hafızaya at
+        isPartyActive = true;
+        sessionStorage.setItem('jamActive', 'true');
+
+        // 2. Odaya bağlan
         socket.emit('joinRoom', message.roomId);
         roomId = message.roomId; 
+        
+        alert("Bu sekme artık senkronize! Diğer sekmeler etkilenmeyecek.");
     }
 });
