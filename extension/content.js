@@ -1,11 +1,14 @@
 // --- AYARLAR ---
 let roomId = "vibe-room-1"; 
-const socket = io("http://localhost:3000");
+const socket = io("http://localhost:3000"); // Eğer sunucu uzaktaysa burayı güncelle
 let isPartyActive = sessionStorage.getItem('jamActive') === 'true';
 let isRemoteAction = false; 
 let video = null; 
 let currentUrl = location.href;
 const SYNC_THRESHOLD = 2; 
+
+// EKLENEN: Anlık listeyi hafızada tutmak için değişken
+let currentQueue = []; 
 
 // --- BAŞLANGIÇ ---
 if (isPartyActive) connectToRoom();
@@ -19,7 +22,7 @@ function connectToRoom() {
 setInterval(() => {
     if (!isPartyActive) return;
 
-    // Video ve URL kontrolü (Aynı kaldı)
+    // Video ve URL kontrolü
     const newVideo = document.querySelector('video');
     if (newVideo && newVideo !== video) {
         video = newVideo;
@@ -48,11 +51,9 @@ function attachEvents(vid) {
     vid.onpause = () => { if (shouldSend()) socket.emit('videoAction', { type: 'PAUSE', roomId }); };
     vid.onseeking = () => { if (shouldSend()) socket.emit('videoAction', { type: 'SEEK', time: vid.currentTime, roomId }); };
     
-    // --- YENİ: VİDEO BİTİNCE SIRADAKİNE GEÇ ---
     vid.onended = () => {
         if (isPartyActive) {
             console.log("🎬 Video bitti! Sıradaki isteniyor...");
-            // Listeden bir sonraki videoyu oynatması için sunucuya emir ver
             socket.emit('queueAction', { type: 'NEXT', roomId });
         }
     };
@@ -63,7 +64,6 @@ socket.on('applyAction', (data) => {
     if (!isPartyActive) return;
     isRemoteAction = true; 
 
-    // URL ve SYNC işlemleri (Aynı kaldı)
     if (data.type === 'URL' || (data.type === 'SYNC' && data.newUrl !== location.href)) {
         if(location.href !== data.newUrl) {
             window.location.href = data.newUrl;
@@ -71,7 +71,6 @@ socket.on('applyAction', (data) => {
         }
     }
     
-    // Video Kontrolleri & Heartbeat (Aynı kaldı)
     if (data.type === 'HEARTBEAT' && video && !video.paused) {
         if (Math.abs(video.currentTime - data.time) > SYNC_THRESHOLD) video.currentTime = data.time;
         isRemoteAction = false; return;
@@ -89,11 +88,17 @@ socket.on('applyAction', (data) => {
     setTimeout(() => { isRemoteAction = false; }, 1000);
 });
 
-// --- YENİ: LİSTE GÜNCELLEMELERİNİ DİNLE ---
+// --- LİSTE GÜNCELLEMELERİNİ DİNLE ---
 socket.on('updateQueue', (queue) => {
     console.log("📋 Liste güncellendi:", queue);
+    
+    // EKLENEN: Gelen listeyi hafızaya kaydet
+    currentQueue = queue;
+
     // Eğer popup açıksa ona da gönder
-    chrome.runtime.sendMessage({ type: "UPDATE_POPUP_QUEUE", queue });
+    chrome.runtime.sendMessage({ type: "UPDATE_POPUP_QUEUE", queue }).catch(() => {
+        // Popup kapalıysa hata verir, önemsizdir, yoksay.
+    });
 });
 
 
@@ -112,14 +117,11 @@ chrome.runtime.onMessage.addListener((msg) => {
         socket.emit('leaveRoom', roomId);
         location.reload(); 
     }
-    // YENİ: POPUP LİSTEYE BİR ŞEY EKLEDİ
     else if (msg.type === "QUEUE_ADD") {
         socket.emit('queueAction', { type: 'ADD', url: msg.url, roomId });
     }
-    // YENİ: POPUP LİSTEYİ GÖRMEK İSTEDİ (Sadece tetikleyici, veri socket.on'dan gelecek)
+    // EKLENEN: Popup listeyi istediğinde hafızadakini gönder
     else if (msg.type === "GET_QUEUE_DATA") {
-        // Bu tetiklendiğinde sunucu zaten updateQueue atar mı? 
-        // En iyisi sunucudan istemek yerine content script'in hafızasındakini yollamak ama
-        // Şimdilik pas geçiyoruz, bir sonraki eventte güncellenir.
+        chrome.runtime.sendMessage({ type: "UPDATE_POPUP_QUEUE", queue: currentQueue });
     }
 });
