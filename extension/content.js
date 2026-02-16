@@ -2,15 +2,17 @@
 let roomId = "vibe-room-1"; 
 const socket = io("http://localhost:3000");
 
-// Sadece bu değişken 'true' ise çalışırız.
+// Jam Modu Kontrolü
 let isPartyActive = sessionStorage.getItem('jamActive') === 'true';
 
-let isRemoteAction = false; // "Ben mi bastım, sunucu mu bastı?" kilidi
+let isRemoteAction = false; 
 let video = null; 
 let currentUrl = location.href;
 
+// Tolerans Ayarı: 2 saniyeden az farkları görmezden gel (Keyif kaçmasın diye)
+const SYNC_THRESHOLD = 2; 
+
 // --- BAŞLANGIÇ ---
-// Sayfa yüklendiğinde eğer Jam modu açıksa hemen bağlan
 if (isPartyActive) {
     connectToRoom();
 }
@@ -20,25 +22,23 @@ function connectToRoom() {
     console.log("🟢 Jam Modu: AKTİF. Oda:", roomId);
 }
 
-// --- ANA DÖNGÜ (Her 1 saniyede bir ortamı kolla) ---
+// --- ANA DÖNGÜ (Sürekli Kontrol) ---
 setInterval(() => {
-    if (!isPartyActive) return; // Pasifsek işlemci yorma
+    if (!isPartyActive) return;
 
-    // 1. VİDEO KONTROLÜ
+    // 1. VİDEO YAKALAMA
     const newVideo = document.querySelector('video');
     if (newVideo && newVideo !== video) {
         console.log("🎥 Video elementi yakalandı.");
         video = newVideo;
-        attachEvents(video); // Kulakları tak
+        attachEvents(video);
     }
 
     // 2. URL KONTROLÜ
     if (location.href !== currentUrl) {
         currentUrl = location.href;
-        
-        // Eğer bu değişimi sunucu yapmadıysa ve geçerli bir videoysa
         if (!isRemoteAction && currentUrl.includes("watch?v=")) {
-            console.log("🔗 URL değişti, arkadaşlara haber veriliyor...");
+            console.log("🔗 URL değişti, bildiriliyor...");
             socket.emit('videoAction', { 
                 type: 'URL', 
                 newUrl: currentUrl, 
@@ -48,50 +48,72 @@ setInterval(() => {
     }
 }, 1000);
 
-// --- VİDEO DİNLEYİCİLERİ (Kulaklar) ---
+// --- YENİ: HEARTBEAT (NABIZ) SİSTEMİ 💓 ---
+// Her 4 saniyede bir, eğer video oynuyorsa zamanımı diğerlerine bildir.
+setInterval(() => {
+    if (isPartyActive && video && !video.paused && !isRemoteAction) {
+        // Sadece 'watch' sayfalarındaysak gönder
+        if(location.href.includes("watch?v=")) {
+            socket.emit('videoAction', { 
+                type: 'HEARTBEAT', 
+                time: video.currentTime, 
+                roomId: roomId 
+            });
+        }
+    }
+}, 4000); 
+
+
+// --- VİDEO DİNLEYİCİLERİ ---
 function attachEvents(vid) {
-    // Yardımcı fonksiyon: Sadece aktifsek ve kilit yoksa gönder
     const shouldSend = () => isPartyActive && !isRemoteAction;
 
     vid.onplay = () => {
-        if (shouldSend()) {
-            console.log("📤 Play gönderildi");
-            socket.emit('videoAction', { type: 'PLAY', roomId });
-        }
+        if (shouldSend()) socket.emit('videoAction', { type: 'PLAY', roomId });
     };
 
     vid.onpause = () => {
-        if (shouldSend()) {
-            console.log("📤 Pause gönderildi");
-            socket.emit('videoAction', { type: 'PAUSE', roomId });
-        }
+        if (shouldSend()) socket.emit('videoAction', { type: 'PAUSE', roomId });
     };
 
     vid.onseeking = () => {
-        if (shouldSend()) {
-            console.log("📤 Seek gönderildi");
-            socket.emit('videoAction', { type: 'SEEK', time: vid.currentTime, roomId });
-        }
+        if (shouldSend()) socket.emit('videoAction', { type: 'SEEK', time: vid.currentTime, roomId });
     };
 }
 
-// --- SUNUCUDAN GELENLERİ UYGULA (Eller) ---
+// --- SUNUCUDAN GELENLERİ UYGULA ---
 socket.on('applyAction', (data) => {
-    if (!isPartyActive) return; // Pasifsek duymazdan gel
+    if (!isPartyActive) return;
+
+    // Kilit tak (Kendi kendimize döngüye girmeyelim)
+    isRemoteAction = true; 
+
+    // 1. HEARTBEAT (OTOMATİK DÜZELTME)
+    if (data.type === 'HEARTBEAT') {
+        if (video && !video.paused) { // Sadece video oynuyorsa düzelt
+            const diff = Math.abs(video.currentTime - data.time);
+            
+            // Eğer fark EŞİK DEĞERİNDEN (2 sn) büyükse düzelt
+            if (diff > SYNC_THRESHOLD) {
+                console.log(`⚠️ Kayma tespit edildi (${diff.toFixed(1)}sn). Senkronize ediliyor...`);
+                video.currentTime = data.time;
+            }
+        }
+        // Heartbeat işlemi çok hızlı olduğu için kilidi hemen aç
+        isRemoteAction = false; 
+        return; 
+    }
 
     console.log("📥 Gelen Komut:", data.type);
-    isRemoteAction = true; // Kilit tak (Kendi kendimize loop'a girmeyelim)
 
-    // 1. URL DEĞİŞİMİ
+    // 2. URL DEĞİŞİMİ
     if (data.type === 'URL') {
         if (location.href !== data.newUrl) {
-            console.log("🚀 Işınlanılıyor:", data.newUrl);
             window.location.href = data.newUrl;
-            // Sayfa yenileneceği için return, kilit açmaya gerek yok
             return; 
         }
     }
-    // 2. SYNC (Hoş Geldin Paketi)
+    // 3. SYNC (Hoş Geldin Paketi)
     else if (data.type === 'SYNC') {
         if (location.href !== data.newUrl && data.newUrl.includes("watch?v=")) {
             window.location.href = data.newUrl;
@@ -102,22 +124,20 @@ socket.on('applyAction', (data) => {
             if (data.isPlaying) video.play(); else video.pause();
         }
     }
-    // 3. NORMAL VİDEO EYLEMLERİ
+    // 4. NORMAL EYLEMLER
     else if (video) {
         if (data.type === 'PLAY') video.play();
         else if (data.type === 'PAUSE') video.pause();
         else if (data.type === 'SEEK') video.currentTime = data.time;
     }
 
-    // Kilidi 1 saniye sonra aç (Ağ gecikmesi için güvenli pay)
     setTimeout(() => { isRemoteAction = false; }, 1000);
 });
 
-// --- YENİ GELENLERE DURUM RAPORU VER ---
+// --- YENİ GELENLERE DURUM RAPORU ---
 socket.on('requestSync', (requesterId) => {
     if (!isPartyActive || !video) return;
     
-    console.log("👋 Yeni gelene rapor veriliyor...");
     socket.emit('sendSyncData', {
         targetId: requesterId,
         action: {
@@ -137,9 +157,7 @@ chrome.runtime.onMessage.addListener((msg) => {
         sessionStorage.setItem('jamActive', 'true');
         roomId = msg.roomId;
         connectToRoom();
-        alert("Odaya Bağlandın! (Sayfa yenilenmeyecek)");
-        
-        // Bağlanır bağlanmaz elimizde video varsa durumunu bildir (Opsiyonel tetik)
+        alert("Odaya Bağlandın!");
         if(video) attachEvents(video);
     }
     else if (msg.type === "LEAVE") {
@@ -147,7 +165,6 @@ chrome.runtime.onMessage.addListener((msg) => {
         sessionStorage.removeItem('jamActive');
         socket.emit('leaveRoom', roomId);
         alert("Odadan Ayrıldın.");
-        // Sayfayı temizlemek için yenilemek en garantisi
         location.reload(); 
     }
 });
