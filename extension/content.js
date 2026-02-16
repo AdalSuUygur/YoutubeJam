@@ -1,26 +1,30 @@
-const socket = io("http://localhost:3000");
-const roomId = "vibe-room-1";
-socket.emit('joinRoom', roomId);
-
-let isRemoteAction = false; 
-const video = document.querySelector('video');
+// ... (eski kodların devamı)
 
 if (video) {
-    // Kullanıcı bir şey yapınca sunucuya haber ver
-    video.onplay = () => {
-        if (!isRemoteAction) socket.emit('videoAction', { type: 'PLAY', roomId });
+    // KULLANICI SARDIĞINDA
+    video.onseeking = () => {
+        if (!isRemoteAction) {
+            socket.emit('videoAction', { 
+                type: 'SEEK', 
+                time: video.currentTime, // Hangi saniyeye gittiği
+                roomId: roomId 
+            });
+        }
     };
 
-    video.onpause = () => {
-        if (!isRemoteAction) socket.emit('videoAction', { type: 'PAUSE', roomId });
-    };
-
-    // Sunucudan emir gelince videoya uygula
+    // SUNUCUDAN GELEN EMİRLERİ DİNLE (Genişletilmiş hali)
     socket.on('videoActionFromServer', (data) => {
         isRemoteAction = true;
-        if (data.type === 'PLAY') video.play();
-        else if (data.type === 'PAUSE') video.pause();
-        
+
+        if (data.type === 'PLAY') {
+            video.play();
+        } else if (data.type === 'PAUSE') {
+            video.pause();
+        } else if (data.type === 'SEEK') {
+            // Videoyu gelen saniyeye ışınla
+            video.currentTime = data.time;
+        }
+
         setTimeout(() => { isRemoteAction = false; }, 500);
     });
 }
