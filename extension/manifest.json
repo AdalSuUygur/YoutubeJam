@@ -3,7 +3,11 @@
   "name": "Youtube Jam",
   "version": "1.0",
   "description": "YouTube videolarını arkadaşlarınla senkronize izle.",
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "storage"],
+  "action": {
+      "default_popup": "popup.html",
+      "default_js": ["popup.js"] 
+  },
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
