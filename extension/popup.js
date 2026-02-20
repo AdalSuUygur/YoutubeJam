@@ -1,12 +1,18 @@
 // KATIL BUTONU
 document.getElementById('joinBtn').addEventListener('click', () => {
     const roomId = document.getElementById('roomInput').value;
-    sendMessageToContent("JOIN_NEW_ROOM", roomId);
+    if (!roomId) return alert("Oda adı girin!");
+    
+    // Odayı kaydet ve Content Script'e bildir
+    chrome.storage.local.set({ savedRoomId: roomId }, () => {
+        sendMessageToContent("JOIN_NEW_ROOM", roomId);
+    });
 });
 
 // AYRIL BUTONU
 document.getElementById('leaveBtn').addEventListener('click', () => {
     sendMessageToContent("LEAVE_ROOM", null);
+    chrome.storage.local.remove(['savedRoomId']);
 });
 
 // Yardımcı Fonksiyon
@@ -19,9 +25,6 @@ function sendMessageToContent(type, data) {
             });
         }
     });
-    
-    // Odayı kaydet
-    if(data) chrome.storage.local.set({ savedRoomId: data });
 }
 
 // Kayıtlı odayı geri getir

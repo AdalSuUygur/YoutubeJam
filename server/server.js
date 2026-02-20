@@ -13,26 +13,26 @@ io.on('connection', (socket) => {
     socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
         console.log(`➕ Odaya giriş: ${socket.id} -> ${roomId}`);
-        
-        // Odaya yeni giren kişi için diğerlerinden durum raporu iste
+        // Yeni gelene mevcut durumu iletmesi için odadakilere sinyal gönderir
         socket.to(roomId).emit('getSyncData', socket.id); 
     });
 
     socket.on('leaveRoom', (roomId) => {
         socket.leave(roomId);
-        console.log(`➖ Odadan çıkış: ${socket.id}`);
+        console.log(`➖ Odadan çıkış: ${socket.id} -> ${roomId}`);
     });
 
     socket.on('videoAction', (data) => {
+        // Gelen eylemi odadaki diğer herkese yayınla
         socket.to(data.roomId).emit('videoActionFromServer', data);
     });
 
     socket.on('sendSyncData', (data) => {
-        // Raporu sadece isteyen kişiye ilet
+        // Senkronizasyon verisini sadece hedef kişiye gönder
         io.to(data.targetId).emit('videoActionFromServer', data.action);
     });
 });
 
 server.listen(3000, () => {
-    console.log('🚀 Haberci V2 hazır!');
+    console.log('YoutubeJam Server 3000 portunda hazır!');
 });
