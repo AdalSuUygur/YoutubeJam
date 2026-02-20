@@ -9,12 +9,21 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-    
+    // server.js içindeki joinRoom bloğunu şu şekilde güncelle
     socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
         console.log(`➕ Odaya giriş: ${socket.id} -> ${roomId}`);
-        // Yeni gelene mevcut durumu iletmesi için odadakilere sinyal gönderir
-        socket.to(roomId).emit('getSyncData', socket.id); 
+        
+        // Odadaki diğer kişileri bul
+        const clients = io.sockets.adapter.rooms.get(roomId);
+        
+        // Eğer odada benden başka biri varsa (yani ilk giren ben değilsem)
+        if (clients && clients.size > 1) {
+            // Odadaki ilk kullanıcıyı (lideri) bul ve sadece ondan veri iste
+            const [firstClient] = clients; 
+            io.to(firstClient).emit('getSyncData', socket.id); 
+            console.log(`🔍 ${socket.id} için ${firstClient} kullanıcısından veri isteniyor...`);
+        }
     });
 
     socket.on('leaveRoom', (roomId) => {

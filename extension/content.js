@@ -4,9 +4,9 @@ let isRemoteAction = false;
 let video = null; 
 let currentUrl = location.href;
 
-// 1. BAĞLANTI FONKSİYONU (Sadece butona basınca)
+// 1. BAĞLANTI FONKSİYONU
 function connect(id) {
-    if (socket) socket.disconnect(); // Varsa eski bağlantıyı kapat
+    if (socket) socket.disconnect(); 
     
     socket = io("http://localhost:3000");
     roomId = id;
@@ -16,12 +16,10 @@ function connect(id) {
         socket.emit('joinRoom', roomId);
     });
 
-    // Sunucudan gelen emirleri dinle
     socket.on('videoActionFromServer', (data) => {
         handleServerAction(data);
     });
 
-    // Senkronizasyon isteği (Odaya yeni biri gelirse)
     socket.on('getSyncData', (targetId) => {
         if (video) {
             socket.emit('sendSyncData', {
@@ -37,32 +35,73 @@ function connect(id) {
     });
 }
 
-// 2. KOMUT MERKEZİ (Command Pattern Mantığı)
+// 2. BEKLEYEN SENKRONİZASYONU UYGULA (Yeni Eklenen Kritik Fonksiyon)
+function applyPendingSync() {
+    const pendingTime = sessionStorage.getItem('pendingSyncTime');
+    const pendingState = sessionStorage.getItem('pendingSyncState');
+
+    if (pendingTime && video) {
+        console.log("⏳ Bekleyen senkronizasyon uygulanıyor...");
+        
+        // Video verisi yüklenene kadar bekle
+        video.onloadedmetadata = () => {
+            isRemoteAction = true;
+            video.currentTime = parseFloat(pendingTime);
+            
+            if (pendingState === 'true') video.play(); else video.pause();
+            
+            // İşlem bitince temizle
+            sessionStorage.removeItem('pendingSyncTime');
+            sessionStorage.removeItem('pendingSyncState');
+            
+            setTimeout(() => { isRemoteAction = false; }, 1000);
+        };
+
+        // Eğer video zaten yüklüyse (metadata event'i kaçtıysa) direkt çalıştır
+        if (video.readyState >= 1) {
+            video.onloadedmetadata();
+        }
+    }
+}
+
+// 3. KOMUT MERKEZİ
 function handleServerAction(data) {
     isRemoteAction = true;
     console.log("📥 Sunucudan emir:", data.type);
 
     if (data.type === 'URL_CHANGE' || data.type === 'SYNC') {
         if (location.href !== data.newUrl) {
+            if (data.type === 'SYNC') {
+                sessionStorage.setItem('pendingSyncTime', data.time);
+                sessionStorage.setItem('pendingSyncState', data.state);
+            }
             window.location.href = data.newUrl;
-            return; // Sayfa yenileneceği için kilit açmaya gerek yok
+            return; 
         }
     }
 
     if (video) {
-        if (data.type === 'PLAY' || (data.type === 'SYNC' && data.state)) video.play();
-        else if (data.type === 'PAUSE' || (data.type === 'SYNC' && !data.state)) video.pause();
-        else if (data.type === 'SEEK' || data.type === 'SYNC') video.currentTime = data.time;
+        if (data.type === 'PLAY' || (data.type === 'SYNC' && data.state)) {
+            video.play();
+        } else if (data.type === 'PAUSE' || (data.type === 'SYNC' && !data.state)) {
+            video.pause();
+        }
+
+        if (data.type === 'SEEK' || data.type === 'SYNC') {
+            const timeDiff = Math.abs(video.currentTime - data.time);
+            if (timeDiff > 1) {
+                video.currentTime = data.time;
+            }
+        }
     }
 
     setTimeout(() => { isRemoteAction = false; }, 1000);
 }
 
-// 3. SAYFA VE VİDEO TAKİBİ
+// 4. SAYFA VE VİDEO TAKİBİ
 function checkPageStatus() {
     if (!socket) return;
 
-    // Link değişimi kontrolü
     if (location.href !== currentUrl) {
         currentUrl = location.href;
         if (!isRemoteAction && currentUrl.includes("watch?v=")) {
@@ -70,11 +109,13 @@ function checkPageStatus() {
         }
     }
 
-    // Video elementi kontrolü
     const v = document.querySelector('video');
     if (v && v !== video) {
         video = v;
         attachEvents(video);
+        // --- BURASI KRİTİK ---
+        // Yeni video elementi bulunduğunda, bekleyen bir senkronizasyon var mı bak:
+        applyPendingSync();
     }
 }
 
@@ -90,7 +131,7 @@ function attachEvents(v) {
 
 setInterval(checkPageStatus, 500);
 
-// 4. POPUP'TAN GELEN MESAJLAR
+// 5. POPUP'TAN GELEN MESAJLAR
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "JOIN_NEW_ROOM") {
         sessionStorage.setItem('jamActive', 'true');
@@ -107,7 +148,6 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
-// Sayfa yenilendiğinde aktiflik kontrolü
 if (sessionStorage.getItem('jamActive') === 'true') {
     chrome.storage.local.get(['savedRoomId'], (res) => {
         if (res.savedRoomId) connect(res.savedRoomId);
