@@ -77,8 +77,8 @@ function handleServerAction(data) {
     console.log("📥 Sunucudan emir:", data.type);
 
     if (data.type === 'URL_CHANGE' || data.type === 'SYNC') {
-            const currentVideoId = getVideoId(location.href);
-            const incomingVideoId = getVideoId(data.newUrl);
+        const currentVideoId = getVideoId(location.href);
+        const incomingVideoId = getVideoId(data.newUrl);
 
 // Tüm link yerine sadece Video ID'lerini karşılaştırıyoruz
         if (currentVideoId !== incomingVideoId) {
