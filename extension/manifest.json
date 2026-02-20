@@ -10,8 +10,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.youtube.com/*"],
-      "js": ["socket.io.min.js", "content.js"]
+      "matches": ["*://*.youtube.com/*"],
+      "js": [
+        "socket.io.min.js", 
+        "config.js",
+        "content.js"
+      ]
     }
   ]
 }

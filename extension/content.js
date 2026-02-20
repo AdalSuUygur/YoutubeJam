@@ -8,7 +8,8 @@ let currentUrl = location.href;
 function connect(id) {
     if (socket) socket.disconnect(); 
     
-    socket = io("http://localhost:3000");
+    // Artık config dosyasından çekiyoruz:
+    socket = io(CONFIG.API_URL); 
     roomId = id;
 
     socket.on('connect', () => {
