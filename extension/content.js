@@ -36,7 +36,7 @@ function connect(id) {
     });
 }
 
-// 2. BEKLEYEN SENKRONİZASYONU UYGULA (Yeni Eklenen Kritik Fonksiyon)
+// 2. BEKLEYEN SENKRONİZASYONU UYGULA 
 function applyPendingSync() {
     const pendingTime = sessionStorage.getItem('pendingSyncTime');
     const pendingState = sessionStorage.getItem('pendingSyncState');
@@ -58,7 +58,7 @@ function applyPendingSync() {
             setTimeout(() => { isRemoteAction = false; }, 1000);
         };
 
-        // Eğer video zaten yüklüyse (metadata event'i kaçtıysa) direkt çalıştır
+        // Eğer video zaten yüklüyse direkt çalıştır
         if (video.readyState >= 1) {
             video.onloadedmetadata();
         }
@@ -67,8 +67,12 @@ function applyPendingSync() {
 
 // URL'den sadece Video ID'sini çeken yardımcı fonksiyon
 function getVideoId(url) {
-    const urlObj = new URL(url);
-    return urlObj.searchParams.get("v");
+    try {
+        const urlObj = new URL(url);
+        return urlObj.searchParams.get("v");
+    } catch (e) {
+        return null;
+    }
 }
 
 // 3. KOMUT MERKEZİ
@@ -80,7 +84,7 @@ function handleServerAction(data) {
         const currentVideoId = getVideoId(location.href);
         const incomingVideoId = getVideoId(data.newUrl);
 
-// Tüm link yerine sadece Video ID'lerini karşılaştırıyoruz
+        // Sadece Video ID'lerini karşılaştırıyoruz
         if (currentVideoId !== incomingVideoId) {
             if (data.type === 'SYNC') {
                 sessionStorage.setItem('pendingSyncTime', data.time);
@@ -113,19 +117,11 @@ function handleServerAction(data) {
 function checkPageStatus() {
     if (!socket) return;
 
-    if (location.href !== currentUrl) {
-        currentUrl = location.href;
-        if (!isRemoteAction && currentUrl.includes("watch?v=")) {
-            socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: currentUrl, roomId });
-        }
-    }
-
+    // Sadece video elementini bulup olayları bağlıyoruz, bozuk URL kontrolü silindi
     const v = document.querySelector('video');
     if (v && v !== video) {
         video = v;
         attachEvents(video);
-        // --- BURASI KRİTİK ---
-        // Yeni video elementi bulunduğunda, bekleyen bir senkronizasyon var mı bak:
         applyPendingSync();
     }
 }
@@ -142,12 +138,28 @@ function attachEvents(v) {
 
 setInterval(checkPageStatus, 500);
 
+// --- YENİ EKLENEN KISIM: YOUTUBE SENSÖRÜ ---
+window.addEventListener('yt-navigate-finish', () => {
+    if (!socket || isRemoteAction) return;
+    
+    const newUrl = location.href;
+    if (newUrl.includes("watch?v=")) {
+        const pureUrl = cleanYouTubeUrl(newUrl); // Linki çöplerden arındırıyoruz
+        console.log("🔗 Temizlenmiş URL gönderiliyor:", pureUrl);
+        socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
+        
+        // Sahte PLAY komutunu engellemek için eklentiyi kısa süreliğine sağır yapıyoruz
+        isRemoteAction = true;
+        setTimeout(() => { isRemoteAction = false; }, 1500);
+    }
+});
+// ------------------------------------------
+
 // 5. POPUP'TAN GELEN MESAJLAR
 chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "JOIN_NEW_ROOM") {
         sessionStorage.setItem('jamActive', 'true');
         connect(message.roomId);
-        // Yeni eklenen geri bildirim:
         alert(`${message.roomId} odasına başarıyla katıldın!`);
     }
     else if (message.type === "LEAVE_ROOM") {
@@ -165,4 +177,16 @@ if (sessionStorage.getItem('jamActive') === 'true') {
     chrome.storage.local.get(['savedRoomId'], (res) => {
         if (res.savedRoomId) connect(res.savedRoomId);
     });
+}
+
+// Yardımcı Fonksiyon: YouTube linkindeki playlist (list) ve sıra (index) parametrelerini temizler
+function cleanYouTubeUrl(rawUrl) {
+    try {
+        const urlObj = new URL(rawUrl);
+        urlObj.searchParams.delete('list');
+        urlObj.searchParams.delete('index');
+        return urlObj.toString();
+    } catch (e) {
+        return rawUrl; // Bir hata olursa orijinal linki geri döndür
+    }
 }
