@@ -15,7 +15,7 @@ document.getElementById('leaveBtn').addEventListener('click', () => {
     chrome.storage.local.remove(['savedRoomId']);
 });
 
-// Yardımcı Fonksiyon
+// Yardımcı Fonksiyon (Rozet Işığı Eklendi)
 function sendMessageToContent(type, data) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
@@ -23,13 +23,26 @@ function sendMessageToContent(type, data) {
                 type: type,
                 roomId: data
             });
+
+            // YENİ: ROZET (BADGE) KONTROLÜ
+            if (type === "JOIN_NEW_ROOM") {
+                // Odaya girince yeşil "ON" ışığını yak
+                chrome.action.setBadgeText({ text: "ON", tabId: tabs[0].id });
+                chrome.action.setBadgeBackgroundColor({ color: "#00FF00", tabId: tabs[0].id });
+            } else if (type === "LEAVE_ROOM") {
+                // Odadan çıkınca ışığı söndür (yazıyı temizle)
+                chrome.action.setBadgeText({ text: "", tabId: tabs[0].id });
+            }
         }
     });
 }
 
-// Kayıtlı odayı geri getir
-chrome.storage.local.get(['savedRoomId'], (result) => {
+// Kayıtlı odayı ve KİŞİ SAYISINI geri getir
+chrome.storage.local.get(['savedRoomId', 'roomUserCount'], (result) => {
     if (result.savedRoomId) {
         document.getElementById('roomInput').value = result.savedRoomId;
+    }
+    if (result.roomUserCount) {
+        document.getElementById('countDisplay').innerText = `Odada: ${result.roomUserCount} kişi`;
     }
 });

@@ -14,11 +14,18 @@ const roomUrlCooldowns = {};
 io.on('connection', (socket) => {
     
     // 1. Odaya Katılma İşlemi 
-    socket.on('joinRoom', (roomId) => {
+   socket.on('joinRoom', (roomId) => {
         socket.join(roomId);
+        socket.roomId = roomId; //Çıkarken hangi odadan düştüğünü bilmek için
         console.log(`➕ Odaya giriş: ${socket.id} -> ${roomId}`);
         
         const clients = io.sockets.adapter.rooms.get(roomId);
+        
+        // YENİ: Odadaki herkese güncel kişi sayısını bildir
+        if (clients) {
+            io.to(roomId).emit('userCountUpdate', clients.size);
+        }
+
         if (clients && clients.size > 1) {
             const [firstClient] = clients; 
             io.to(firstClient).emit('getSyncData', socket.id); 
@@ -26,6 +33,13 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('disconnect', () => {
+        if (socket.roomId) {
+            const room = io.sockets.adapter.rooms.get(socket.roomId);
+            const count = room ? room.size : 0;
+            io.to(socket.roomId).emit('userCountUpdate', count); // Kalanlara yeni sayıyı bildir
+        }
+    });
     // 2. Video Eylemleri (5 Saniyelik Kilit Mantığı ile)
     socket.on('videoAction', (data) => {
         if (data.type === 'URL_CHANGE') {

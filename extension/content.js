@@ -16,7 +16,10 @@ function connect(id) {
         console.log("✅ Sunucuya bağlandım! Oda:", roomId);
         socket.emit('joinRoom', roomId);
     });
-
+    // Sunucudan gelen kişi sayısını Chrome hafızasına yaz
+    socket.on('userCountUpdate', (count) => {
+        chrome.storage.local.set({ roomUserCount: count });
+    });
     socket.on('videoActionFromServer', (data) => {
         handleServerAction(data);
     });
