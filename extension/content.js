@@ -142,15 +142,23 @@ setInterval(checkPageStatus, 500);
 window.addEventListener('yt-navigate-finish', () => {
     if (!socket || isRemoteAction) return;
     
-    const newUrl = location.href;
-    if (newUrl.includes("watch?v=")) {
-        const pureUrl = cleanYouTubeUrl(newUrl); // Linki çöplerden arındırıyoruz
-        console.log("🔗 Temizlenmiş URL gönderiliyor:", pureUrl);
+    const currentUrl = location.href;
+    
+    if (currentUrl.includes("watch?v=")) {
+        const pureUrl = cleanYouTubeUrl(currentUrl); 
+
+        // KRİTİK EKLEME: Eğer şu anki link kirliyse (mix/playlist içeriyorsa)
+        if (currentUrl !== pureUrl) {
+            console.log("🧹 Kendi tarayıcımdaki playlist linkini temizliyorum...");
+            // Kendi adres çubuğunu sessizce temizle (sayfayı yenilemeden)
+            window.history.replaceState({}, '', pureUrl);
+        }
+
+        console.log("🔗 Temizlenmiş URL odaya gönderiliyor:", pureUrl);
         socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
         
-        // Sahte PLAY komutunu engellemek için eklentiyi kısa süreliğine sağır yapıyoruz
         isRemoteAction = true;
-        setTimeout(() => { isRemoteAction = false; }, 1500);
+        setTimeout(() => { isRemoteAction = false; }, 900);
     }
 });
 // ------------------------------------------
@@ -185,6 +193,7 @@ function cleanYouTubeUrl(rawUrl) {
         const urlObj = new URL(rawUrl);
         urlObj.searchParams.delete('list');
         urlObj.searchParams.delete('index');
+        urlObj.searchParams.delete('start_radio');
         return urlObj.toString();
     } catch (e) {
         return rawUrl; // Bir hata olursa orijinal linki geri döndür
