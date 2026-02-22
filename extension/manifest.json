@@ -8,6 +8,9 @@
       "default_popup": "popup.html",
       "default_js": ["popup.js"] 
   },
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["*://*.youtube.com/*"],
