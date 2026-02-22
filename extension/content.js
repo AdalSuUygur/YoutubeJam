@@ -184,12 +184,20 @@ chrome.runtime.onMessage.addListener((message) => {
     }
 });
 
+// Sayfa yenilendiğinde (veya yeni müziğe geçildiğinde) kopmamak için:
 if (sessionStorage.getItem('jamActive') === 'true') {
     chrome.storage.local.get(['savedRoomId'], (res) => {
-        if (res.savedRoomId) connect(res.savedRoomId);
+        if (res.savedRoomId) {
+            connect(res.savedRoomId); // İsim yok, sadece odaya bağlanıyoruz
+            
+            // YENİ: Bekçiye haber ver, yeni şarkıya geçsek de ışığı açık tutsun
+            chrome.runtime.sendMessage({ type: "SET_BADGE", text: "ON", color: "#00FF00" });
+        }
     });
+} else {
+    // Odada değilsek rozeti temizle
+    chrome.runtime.sendMessage({ type: "SET_BADGE", text: "", color: "#00FF00" });
 }
-
 // Yardımcı Fonksiyon: YouTube linkindeki playlist (list) ve sıra (index) parametrelerini temizler
 function cleanYouTubeUrl(rawUrl) {
     try {
