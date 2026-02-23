@@ -117,15 +117,33 @@ function handleServerAction(data) {
 }
 
 // 4. SAYFA VE VİDEO TAKİBİ
+
+// 4. SAYFA VE VİDEO TAKİBİ (YENİ EVRENSEL RADAR)
 function checkPageStatus() {
     if (!socket) return;
 
-    // Sadece video elementini bulup olayları bağlıyoruz, bozuk URL kontrolü silindi
+    // A) Video/Müzik Çalar Kontrolü
     const v = document.querySelector('video');
     if (v && v !== video) {
         video = v;
         attachEvents(video);
         applyPendingSync();
+    }
+
+    // B) Yeni Müzik/Video Geçişi Kontrolü (YouTube & Music Ortak)
+    if (!isRemoteAction && location.href !== currentUrl) {
+        currentUrl = location.href; 
+        
+        if (currentUrl.includes("watch?v=")) {
+            const pureUrl = cleanYouTubeUrl(currentUrl); 
+            if (currentUrl !== pureUrl) {
+                window.history.replaceState({}, '', pureUrl);
+                currentUrl = pureUrl;
+            }
+            socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
+            isRemoteAction = true;
+            setTimeout(() => { isRemoteAction = false; }, 900);
+        }
     }
 }
 
@@ -140,30 +158,6 @@ function attachEvents(v) {
 }
 
 setInterval(checkPageStatus, 500);
-
-// --- YENİ EKLENEN KISIM: YOUTUBE SENSÖRÜ ---
-window.addEventListener('yt-navigate-finish', () => {
-    if (!socket || isRemoteAction) return;
-    
-    const currentUrl = location.href;
-    
-    if (currentUrl.includes("watch?v=")) {
-        const pureUrl = cleanYouTubeUrl(currentUrl); 
-
-        // KRİTİK EKLEME: Eğer şu anki link kirliyse (mix/playlist içeriyorsa)
-        if (currentUrl !== pureUrl) {
-            console.log("🧹 Kendi tarayıcımdaki playlist linkini temizliyorum...");
-            // Kendi adres çubuğunu sessizce temizle (sayfayı yenilemeden)
-            window.history.replaceState({}, '', pureUrl);
-        }
-
-        console.log("🔗 Temizlenmiş URL odaya gönderiliyor:", pureUrl);
-        socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
-        
-        isRemoteAction = true;
-        setTimeout(() => { isRemoteAction = false; }, 900);
-    }
-});
 // ------------------------------------------
 
 // 5. POPUP'TAN GELEN MESAJLAR
