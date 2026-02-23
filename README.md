@@ -18,7 +18,7 @@ Youtube Jam, arkadaşlarınızla aynı anda YouTube videoları izlemenizi sağla
 
 ## Kurulum - Eklentiyi Tarayıcıya Yükleme
 
-1. Bu depoyu indirin veya `.zip` olarak çıkarın.
+1. extension klasörünü indirin veya `.zip` olarak çıkarın.
 2. Chrome tarayıcınızda `chrome://extensions/` adresine gidin.
 3. Sağ üst köşedeki **Geliştirici Modu**'nu aktif hale getirin.
 4. **Paketlenmemiş öğe yükle** butonuna tıklayın ve projenin içindeki `extension` klasörünü seçin.
