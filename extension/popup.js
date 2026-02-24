@@ -2,10 +2,20 @@
 document.getElementById('joinBtn').addEventListener('click', () => {
     const roomId = document.getElementById('roomInput').value;
     if (!roomId) return alert("Oda adı girin!");
-    
-    // Odayı kaydet ve Content Script'e bildir
-    chrome.storage.local.set({ savedRoomId: roomId }, () => {
-        sendMessageToContent("JOIN_NEW_ROOM", roomId);
+
+    // YENİ EKLENEN KONTROL: Chrome'a şu anki sekmeyi soruyoruz
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const currentTab = tabs[0];
+        
+        // Eğer sekme yoksa veya URL 'youtube.com' içermiyorsa işlemi durdur
+        if (!currentTab || !currentTab.url.includes("youtube.com")) {
+            return alert("YoutubeJam'i kullanmak için lütfen önce bir YouTube sekmesi açın!");
+        }
+
+        // Eğer YouTube'daysak: Odayı kaydet ve Content Script'e bildir
+        chrome.storage.local.set({ savedRoomId: roomId }, () => {
+            sendMessageToContent("JOIN_NEW_ROOM", roomId);
+        });
     });
 });
 
