@@ -93,6 +93,7 @@ function handleServerAction(data) {
                 sessionStorage.setItem('pendingSyncTime', data.time);
                 sessionStorage.setItem('pendingSyncState', data.state);
             }
+            sessionStorage.setItem('isRemoteNavigating', 'true');
             window.location.href = data.newUrl;
             return; 
         }
@@ -158,6 +159,40 @@ function attachEvents(v) {
 }
 
 setInterval(checkPageStatus, 500);
+<<<<<<< HEAD
+=======
+
+// --- YOUTUBE SENSÖRÜ ---
+window.addEventListener('yt-navigate-finish', () => {
+    const isRemoteNav = sessionStorage.getItem('isRemoteNavigating');
+    if (isRemoteNav === 'true') {
+        sessionStorage.removeItem('isRemoteNavigating');
+        console.log("🤫 Sunucu emriyle yönlendim, geri bildirim (yankı) iptal.");
+        return; // Fonksiyonu burada durduruyoruz, sunucuya mesaj atmıyoruz.
+    }
+
+    if (!socket || isRemoteAction) return;
+    
+    const currentUrl = location.href;
+    
+    if (currentUrl.includes("watch?v=")) {
+        const pureUrl = cleanYouTubeUrl(currentUrl); 
+
+        // KRİTİK EKLEME: Eğer şu anki link kirliyse (mix/playlist içeriyorsa)
+        if (currentUrl !== pureUrl) {
+            console.log("🧹 Kendi tarayıcımdaki playlist linkini temizliyorum...");
+            // Kendi adres çubuğunu sessizce temizle (sayfayı yenilemeden)
+            window.history.replaceState({}, '', pureUrl);
+        }
+
+        console.log("🔗 Temizlenmiş URL odaya gönderiliyor:", pureUrl);
+        socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
+        
+        isRemoteAction = true;
+        setTimeout(() => { isRemoteAction = false; }, 900);
+    }
+});
+>>>>>>> 94f02f6 (Fix: sessionStorage Verisinin Temizlenmemesi)
 // ------------------------------------------
 
 // 5. POPUP'TAN GELEN MESAJLAR
@@ -185,7 +220,6 @@ chrome.runtime.onMessage.addListener((message) => {
 
         console.log("✅ YoutubeJam: Odadan ayrıldın ve bağlantı kesildi.");
         // alert("Odadan ayrıldın."); // Kullanıcıyı sürekli alert ile darlamamak için konsol daha iyidir.
-        location.reload();
     }
 });
 
