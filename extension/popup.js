@@ -21,8 +21,14 @@ document.getElementById('joinBtn').addEventListener('click', () => {
 
 // AYRIL BUTONU
 document.getElementById('leaveBtn').addEventListener('click', () => {
+    // 1. Adım: Content Script'e "Bağlantıyı kopar" emri gönder
     sendMessageToContent("LEAVE_ROOM", null);
-    chrome.storage.local.remove(['savedRoomId']);
+
+    // 2. Adım: Hafızayı temizle (Hangi odada olduğumuzu unutalım)
+    chrome.storage.local.remove(['savedRoomId', 'roomUserCount']);
+
+    // 3. Adım: UI Güncelleme (Aşağıda detaylandırıyoruz)
+    document.getElementById('countDisplay').innerText = "Aktif bir odada değilsiniz.";
 });
 
 // Yardımcı Fonksiyon (Rozet Işığı Eklendi)
@@ -49,10 +55,18 @@ function sendMessageToContent(type, data) {
 
 // Kayıtlı odayı ve KİŞİ SAYISINI geri getir
 chrome.storage.local.get(['savedRoomId', 'roomUserCount'], (result) => {
+
+    const countDisplay = document.getElementById('countDisplay');
+    const roomInput = document.getElementById('roomInput');
+
     if (result.savedRoomId) {
-        document.getElementById('roomInput').value = result.savedRoomId;
-    }
-    if (result.roomUserCount) {
-        document.getElementById('countDisplay').innerText = `Odada: ${result.roomUserCount} kişi`;
+        roomInput.value = result.savedRoomId;
+        // Eğer sayı henüz gelmemişse (null/undefined ise) 1 olarak varsayalım
+        const count = result.roomUserCount || 1;
+        countDisplay.innerText = `Odada: ${count} kişi`;
+    } else {
+        // BURASI ÖNEMLİ: Eğer kayıtlı oda yoksa UI'ı temizle
+        roomInput.value = ""; // Input kutusunu da boşaltalım
+        countDisplay.innerText = "Aktif bir odada değilsiniz.";
     }
 });

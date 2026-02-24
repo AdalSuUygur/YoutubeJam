@@ -169,11 +169,22 @@ chrome.runtime.onMessage.addListener((message) => {
     }
     else if (message.type === "LEAVE_ROOM") {
         if (socket) {
+            // Sunucuya odadan çıktığımızı kibarca söylüyoruz
             socket.emit('leaveRoom', roomId);
+            // Bağlantıyı tamamen koparıyoruz
             socket.disconnect();
+            // Belleği temizliyoruz
+            socket = null;
+            roomId = null;
         }
+        // session storage temizliği (Otomatik bağlanmayı durdurur)
         sessionStorage.removeItem('jamActive');
-        alert("Odadan ayrıldın.");
+
+        // Rozeti temizle (Background script üzerinden)
+        chrome.runtime.sendMessage({ type: "SET_BADGE", text: "" });
+
+        console.log("✅ YoutubeJam: Odadan ayrıldın ve bağlantı kesildi.");
+        // alert("Odadan ayrıldın."); // Kullanıcıyı sürekli alert ile darlamamak için konsol daha iyidir.
         location.reload();
     }
 });
