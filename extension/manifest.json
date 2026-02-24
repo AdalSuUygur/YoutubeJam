@@ -1,23 +1,30 @@
 {
   "manifest_version": 3,
-  "name": "Youtube Jam",
-  "version": "1.0",
-  "description": "YouTube videolarını arkadaşlarınla senkronize izle.",
+  "name": "YoutubeJam",
+  "version": "1.1.0",
+  "description": "YouTube videolarını arkadaşlarınızla senkronize bir şekilde izleyin.",  
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": ["activeTab", "storage"],
   "action": {
-      "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon48.png"
   },
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
+      "matches": ["https://www.youtube.com/*"],
       "js": [
         "socket.io.min.js", 
         "config.js",
         "content.js"
       ]
     }
-  ]
+  ],
+  "host_permissions": ["https://www.youtube.com/*"]
 }
