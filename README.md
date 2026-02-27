@@ -1,44 +1,27 @@
+# JamRoom
 
-# YoutubeJam
+JamRoom is a Chrome extension that synchronizes YouTube video playback between users connected to the same room.
 
-Youtube Jam, arkadaşlarınızla aynı anda YouTube videoları izlemenizi sağlayan, senkronize bir Chrome eklentisidir. Bu proje, bir YouTube videosunun oynatma, durdurma ve saniye kaydırma işlemlerini gerçek zamanlı olarak tüm katılımcılar arasında eşitler.
+## Features
 
-## Özellikler
+- Real-time play / pause synchronization
+- Seek synchronization
+- Video change synchronization within YouTube
+- Room-based session model
 
-* **Oda Mantığı:** Özel oda isimleri ile izole gruplar oluşturma.
-* **Gerçek Zamanlı Senkronizasyon:** Play/Pause/Seek eylemlerinin anlık iletimi.
-* **Akıllı Işınlanma (Initial Sync):** Odaya sonradan katılan kullanıcının, mevcut lidere otomatik olarak eşitlenmesi.
-* **Döngü Kilidi:** Komutların sonsuz döngüye girmesini engelleyen mimari.
+## Technology
 
-## Teknoloji Yığını
+- Chrome Extension (Manifest V3)
+- Node.js + Socket.io backend
+- Hosted on Render
 
-* **Frontend:** JavaScript (Chrome Extension API)
-* **Backend:** Node.js, Socket.io
-* **Deployment:** Render (Server)
+## Installation (Development)
 
-## Kurulum - Eklentiyi Tarayıcıya Yükleme
+1. Download the extension folder.
+2. Open chrome://extensions/
+3. Enable Developer Mode.
+4. Click "Load unpacked" and select the extension folder.
 
-1. extension klasörünü indirin veya `.zip` olarak çıkarın.
-2. Chrome tarayıcınızda `chrome://extensions/` adresine gidin.
-3. Sağ üst köşedeki **Geliştirici Modu**'nu aktif hale getirin.
-4. **Paketlenmemiş öğe yükle** butonuna tıklayın ve projenin içindeki `extension` klasörünü seçin.
+## License
 
-## 🧑‍💻 Geliştiriciler
-
-* **Adal Su Uygur**
-* **Batuhan İnan**
-
-## 📜 Lisans
-
-Bu proje MIT lisansı ile lisanslanmıştır.
-
-## Gelecek Planları (Backlog)
-
-GitHub üzerinden takip edebileceğiniz öncelikli geliştirmeler:
-
-- [ ] **Heartbeat System:** Milimetrik zaman kaymalarını önlemek ve stabiliteyi artırmak.
-- [ ] **Video URL & Navigation:** YouTube içinde video değişimlerini daha kararlı hale getirmek (SPA Navigation).
-- [ ] **Chat & UI:** Oda içi hızlı iletişim ve daha kullanıcı dostu bir arayüz.
-- [ ] **Leader Election:** Dinamik lider seçimi ile oda yönetimini güçlendirmek.
-
-> Tüm geliştirmeleri ve hata bildirimlerini [Issues](https://github.com/AdalSuUygur/YoutubeJam/issues) sayfamızdan takip edebilirsiniz.
+MIT License
