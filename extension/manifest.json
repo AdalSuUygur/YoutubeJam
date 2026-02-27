@@ -3,6 +3,7 @@
   "name": "JamRoom",
   "version": "1.1.2",
   "description": "Real-time playback sync for YouTube rooms (play/pause/seek).",
+  "default_locale": "en",
   "homepage_url": "https://github.com/AdalSuUygur/YoutubeJam",
   "minimum_chrome_version": "114",
   "icons": {

@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body { width: 250px; font-family: sans-serif; padding: 15px; text-align: center; }
-        h3 { color: #ff0000; margin-top: 0; }
-        input { width: 90%; padding: 8px; margin-bottom: 10px; }
-        button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold;}
-        #joinBtn { background-color: #ff0000; color: white; }
-        #leaveBtn { background-color: #333; color: white; }
-    </style>
+  <meta charset="UTF-8">
+  <style>
+    body { width: 250px; font-family: sans-serif; padding: 15px; text-align: center; }
+    h3 { color: #ff0000; margin-top: 0; }
+    input { width: 90%; padding: 8px; margin-bottom: 10px; }
+    button { width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px; font-weight: bold;}
+    #joinBtn { background-color: #ff0000; color: white; }
+    #leaveBtn { background-color: #333; color: white; }
+  </style>
 </head>
 <body>
-    <p id="countDisplay" style="color: #555; font-size: 14px; font-weight: bold; margin-bottom: 10px;">In room: ? users</p>
+  <h3 data-i18n="appName">JamRoom</h3>
 
-    <input type="text" id="roomInput" value="room-1">
+  <p id="countDisplay"
+     data-i18n="statusNotInRoom"
+     style="color: #555; font-size: 14px; font-weight: bold; margin-bottom: 10px;">
+    Not in an active room.
+  </p>
 
-    <button id="joinBtn">JOIN ROOM</button>
-    <button id="leaveBtn">LEAVE ROOM</button>
-    
-    <script src="popup.js" defer></script>
+  <input type="text" id="roomInput" data-i18n-placeholder="roomPlaceholder" value="room-1">
+
+  <button id="joinBtn" data-i18n="joinRoom">JOIN ROOM</button>
+  <button id="leaveBtn" data-i18n="leaveRoom">LEAVE ROOM</button>
+
+  <script src="popup.js" defer></script>
 </body>
 </html>

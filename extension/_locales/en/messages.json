@@ -1,0 +1,23 @@
+{
+  "appName": { "message": "JamRoom" },
+
+  "statusNotInRoom": { "message": "Not in an active room." },
+
+  "statusInRoom": {
+    "message": "In room: $COUNT$ users",
+    "placeholders": {
+      "count": { "content": "$1" }
+    }
+  },
+
+  "roomPlaceholder": { "message": "room-1" },
+
+  "joinRoom": { "message": "JOIN ROOM" },
+  "leaveRoom": { "message": "LEAVE ROOM" },
+
+  "enterRoomName": { "message": "Please enter a room name." },
+
+  "openYouTubeFirst": {
+    "message": "Please open a YouTube tab before using JamRoom."
+  }
+}
