@@ -36,4 +36,4 @@ JamRoom does not sell user data and does not use data for advertising or analyti
 ## Contact
 
 For support or privacy questions:
-https://github.com/AdalSuUygur/YoutubeJam/issues
+https://github.com/AdalSuUygur/JamRoom/issues
