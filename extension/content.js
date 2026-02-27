@@ -13,7 +13,7 @@ function connect(id) {
     roomId = id;
 
     socket.on('connect', () => {
-        console.log("✅ Sunucuya bağlandım! Oda:", roomId);
+        console.log("✅ Connected to server. Room:", roomId);
         socket.emit('joinRoom', roomId);
     });
     // Sunucudan gelen kişi sayısını Chrome hafızasına yaz
@@ -45,7 +45,7 @@ function applyPendingSync() {
     const pendingState = sessionStorage.getItem('pendingSyncState');
 
     if (pendingTime && video) {
-        console.log("⏳ Bekleyen senkronizasyon uygulanıyor...");
+        console.log("⏳ Applying pending sync...");
         
         // Video verisi yüklenene kadar bekle
         video.onloadedmetadata = () => {
@@ -81,7 +81,7 @@ function getVideoId(url) {
 // 3. KOMUT MERKEZİ
 function handleServerAction(data) {
     isRemoteAction = true;
-    console.log("📥 Sunucudan emir:", data.type);
+    console.log("📥 Server action:", data.type);
 
     if (data.type === 'URL_CHANGE' || data.type === 'SYNC') {
         const currentVideoId = getVideoId(location.href);
@@ -140,14 +140,14 @@ function attachEvents(v) {
     };
 }
 
-setInterval(checkPageStatus, 500);
+setInterval(checkPageStatus, 1000);
 
 // --- YOUTUBE SENSÖRÜ ---
 window.addEventListener('yt-navigate-finish', () => {
     const isRemoteNav = sessionStorage.getItem('isRemoteNavigating');
     if (isRemoteNav === 'true') {
         sessionStorage.removeItem('isRemoteNavigating');
-        console.log("🤫 Sunucu emriyle yönlendim, geri bildirim (yankı) iptal.");
+        console.log("🤫 Navigated due to a server action; suppressing echo feedback.");
         return; // Fonksiyonu burada durduruyoruz, sunucuya mesaj atmıyoruz.
     }
 
@@ -160,12 +160,12 @@ window.addEventListener('yt-navigate-finish', () => {
 
         // KRİTİK EKLEME: Eğer şu anki link kirliyse (mix/playlist içeriyorsa)
         if (currentUrl !== pureUrl) {
-            console.log("🧹 Kendi tarayıcımdaki playlist linkini temizliyorum...");
+            console.log("🧹 Cleaning playlist parameters from the current URL...");
             // Kendi adres çubuğunu sessizce temizle (sayfayı yenilemeden)
             window.history.replaceState({}, '', pureUrl);
         }
 
-        console.log("🔗 Temizlenmiş URL odaya gönderiliyor:", pureUrl);
+        console.log("🔗 Sending cleaned URL to the room:", pureUrl);
         socket.emit('videoAction', { type: 'URL_CHANGE', newUrl: pureUrl, roomId });
         
         isRemoteAction = true;
@@ -179,7 +179,12 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message.type === "JOIN_NEW_ROOM") {
         sessionStorage.setItem('jamActive', 'true');
         connect(message.roomId);
-        alert(`${message.roomId} odasına başarıyla katıldın!`);
+
+    // Let the popup know we joined successfully
+        chrome.runtime.sendMessage({
+        type: "ROOM_JOINED",
+        roomId: message.roomId
+        });
     }
     else if (message.type === "LEAVE_ROOM") {
         if (socket) {
@@ -197,8 +202,7 @@ chrome.runtime.onMessage.addListener((message) => {
         // Rozeti temizle (Background script üzerinden)
         chrome.runtime.sendMessage({ type: "SET_BADGE", text: "" });
 
-        console.log("✅ YoutubeJam: Odadan ayrıldın ve bağlantı kesildi.");
-        // alert("Odadan ayrıldın."); // Kullanıcıyı sürekli alert ile darlamamak için konsol daha iyidir.
+        console.log("✅ JamRoom: Left the room and disconnected.");
     }
 });
 

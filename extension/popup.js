@@ -1,72 +1,84 @@
-// KATIL BUTONU
+// JOIN BUTTON
 document.getElementById('joinBtn').addEventListener('click', () => {
-    const roomId = document.getElementById('roomInput').value;
-    if (!roomId) return alert("Oda adı girin!");
+  const roomId = document.getElementById('roomInput').value.trim();
+  if (!roomId) return alert("Please enter a room name.");
 
-    // YENİ EKLENEN KONTROL: Chrome'a şu anki sekmeyi soruyoruz
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const currentTab = tabs[0];
-        
-        // Eğer sekme yoksa veya URL 'youtube.com' içermiyorsa işlemi durdur
-        if (!currentTab || !currentTab.url.includes("youtube.com")) {
-            return alert("YoutubeJam'i kullanmak için lütfen önce bir YouTube sekmesi açın!");
-        }
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const currentTab = tabs[0];
 
-        // Eğer YouTube'daysak: Odayı kaydet ve Content Script'e bildir
-        chrome.storage.local.set({ savedRoomId: roomId }, () => {
-            sendMessageToContent("JOIN_NEW_ROOM", roomId);
-        });
+    // Must be on YouTube
+    if (!currentTab || !currentTab.url || !currentTab.url.includes("youtube.com")) {
+      return alert("To use JamRoom, please open a YouTube tab first.");
+    }
+
+    // Save room + tell content script to join
+    chrome.storage.local.set({ savedRoomId: roomId }, () => {
+      sendMessageToContent("JOIN_NEW_ROOM", roomId);
+
+      // Immediate UI feedback (no alert)
+      const countDisplay = document.getElementById('countDisplay');
+      countDisplay.innerText = `Joining: ${roomId}...`;
     });
+  });
 });
 
-// AYRIL BUTONU
+// LEAVE BUTTON
 document.getElementById('leaveBtn').addEventListener('click', () => {
-    // 1. Adım: Content Script'e "Bağlantıyı kopar" emri gönder
-    sendMessageToContent("LEAVE_ROOM", null);
+  sendMessageToContent("LEAVE_ROOM", null);
 
-    // 2. Adım: Hafızayı temizle (Hangi odada olduğumuzu unutalım)
-    chrome.storage.local.remove(['savedRoomId', 'roomUserCount']);
+  chrome.storage.local.remove(['savedRoomId', 'roomUserCount']);
 
-    // 3. Adım: UI Güncelleme (Aşağıda detaylandırıyoruz)
-    document.getElementById('countDisplay').innerText = "Aktif bir odada değilsiniz.";
+  document.getElementById('countDisplay').innerText = "Not in an active room.";
 });
 
-// Yardımcı Fonksiyon (Rozet Işığı Eklendi)
+// Helper: send message to active tab content script + badge control
 function sendMessageToContent(type, data) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-            chrome.tabs.sendMessage(tabs[0].id, {
-                type: type,
-                roomId: data
-            });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (!tabs[0]) return;
 
-            // YENİ: ROZET (BADGE) KONTROLÜ
-            if (type === "JOIN_NEW_ROOM") {
-                // Odaya girince yeşil "ON" ışığını yak
-                chrome.action.setBadgeText({ text: "ON", tabId: tabs[0].id });
-                chrome.action.setBadgeBackgroundColor({ color: "#00FF00", tabId: tabs[0].id });
-            } else if (type === "LEAVE_ROOM") {
-                // Odadan çıkınca ışığı söndür (yazıyı temizle)
-                chrome.action.setBadgeText({ text: "", tabId: tabs[0].id });
-            }
-        }
-    });
+    chrome.tabs.sendMessage(tabs[0].id, { type, roomId: data });
+
+    if (type === "JOIN_NEW_ROOM") {
+      chrome.action.setBadgeText({ text: "ON", tabId: tabs[0].id });
+      chrome.action.setBadgeBackgroundColor({ color: "#00FF00", tabId: tabs[0].id });
+    } else if (type === "LEAVE_ROOM") {
+      chrome.action.setBadgeText({ text: "", tabId: tabs[0].id });
+    }
+  });
 }
 
-// Kayıtlı odayı ve KİŞİ SAYISINI geri getir
+// Listen for content script confirmation (replaces alert)
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === "ROOM_JOINED") {
+    const countDisplay = document.getElementById("countDisplay");
+    const roomInput = document.getElementById("roomInput");
+
+    // Keep UI consistent
+    if (msg.roomId) roomInput.value = msg.roomId;
+
+    // Show a short success message, then fall back to user count
+    countDisplay.innerText = `Joined: ${msg.roomId}`;
+
+    setTimeout(() => {
+      chrome.storage.local.get(['roomUserCount'], (res) => {
+        const count = res.roomUserCount || 1;
+        countDisplay.innerText = `In room: ${count} users`;
+      });
+    }, 1200);
+  }
+});
+
+// Restore saved room and user count on popup open
 chrome.storage.local.get(['savedRoomId', 'roomUserCount'], (result) => {
+  const countDisplay = document.getElementById('countDisplay');
+  const roomInput = document.getElementById('roomInput');
 
-    const countDisplay = document.getElementById('countDisplay');
-    const roomInput = document.getElementById('roomInput');
-
-    if (result.savedRoomId) {
-        roomInput.value = result.savedRoomId;
-        // Eğer sayı henüz gelmemişse (null/undefined ise) 1 olarak varsayalım
-        const count = result.roomUserCount || 1;
-        countDisplay.innerText = `Odada: ${count} kişi`;
-    } else {
-        // BURASI ÖNEMLİ: Eğer kayıtlı oda yoksa UI'ı temizle
-        roomInput.value = ""; // Input kutusunu da boşaltalım
-        countDisplay.innerText = "Aktif bir odada değilsiniz.";
-    }
+  if (result.savedRoomId) {
+    roomInput.value = result.savedRoomId;
+    const count = result.roomUserCount || 1;
+    countDisplay.innerText = `In room: ${count} users`;
+  } else {
+    roomInput.value = "";
+    countDisplay.innerText = "Not in an active room.";
+  }
 });
