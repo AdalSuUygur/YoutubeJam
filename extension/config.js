@@ -1,3 +1,3 @@
 const CONFIG = {
-    API_URL: "https://youtubejam.onrender.com" 
+    API_URL: "https://jamroom-mznp.onrender.com" 
 };
